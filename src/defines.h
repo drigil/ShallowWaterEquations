@@ -6,3 +6,5 @@
 #define dx 0.2f
 #define dy 0.2f
 #define dt 0.016f
+
+#define WENO_EPSILON dx * dy
