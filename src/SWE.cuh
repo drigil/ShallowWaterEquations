@@ -38,6 +38,7 @@ class SWE{
 	public:
 		SWE(int numPointsX, int numPointsY);	
 		void setInitialConditions(int conditionNum);
+		void simulate();
 
 };
 
