@@ -21,15 +21,9 @@ class SWE{
 		float *h_height, *h_momentumU, *h_momentumV; //Host
 		float *d_height, *d_momentumU, *d_momentumV; // Device
 
-		// horizontal and vertical flux
-		// F and G are fluxes along X and Y direction
-		// h, hu and hv are the terms of F and G fluxes
-		float *h_Fh, *h_Fhu, *h_Fhv, *h_Gh, *h_Ghu, *h_Ghv;  
-		float *d_Fh, *d_Fhu, *d_Fhv, *d_Gh, *d_Ghu, *d_Ghv;  
-
-		// max height, max velocity, characteristic velocity
-		float *h_maxHeight, *h_maxVelocity, *h_characteristicVelocity;
-		float *d_maxHeight, *d_maxVelocity, *d_characteristicVelocity;
+		// height and momentum variables
+		float *h_height_out, *h_momentumU_out, *h_momentumV_out; //Host
+		float *d_height_out, *d_momentumU_out, *d_momentumV_out; // Device
 
 		// Offsets for boundary conditions
 		int *h_offsetX, *h_offsetY;

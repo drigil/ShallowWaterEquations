@@ -7,29 +7,30 @@ int main(){
 	int conditionNum = 0;
 
 	SWE swe(numPointsX, numPointsY);
-	// swe.setInitialConditions(conditionNum);
+	swe.setInitialConditions(conditionNum);
 
 	for(int i = 0; i<numPointsX; i++){
 		for(int j = 0; j<numPointsY; j++){
-			printf("%d ", swe.h_offsetY[i + j * (numPointsX)]);
+			printf("%f ", swe.h_height[i + j * (numPointsX)]);
 		}
 		printf(" \n");
 	}
 	
-	// swe.simulate();
+	swe.simulate();
 
-	// cudaError_t kernelErr = cudaGetLastError();
-	// if(kernelErr!=cudaSuccess){
-	// 	printf("Error: %s\n", cudaGetErrorString(kernelErr));
-	// }
+	cudaError_t kernelErr = cudaGetLastError();
+	if(kernelErr!=cudaSuccess){
+		printf("Error: %s\n", cudaGetErrorString(kernelErr));
+	}
 
 
-	// printf("After running simulation \n");
-	// for(int i = 0; i<numPointsX; i++){
-	// 	for(int j = 0; j<numPointsY; j++){
-	// 		printf("%f ", swe.h_height[i + j * (numPointsX + 2)]);
-	// 	}
-	// 	printf(" \n");
-	// }
+	printf("After running simulation \n");
+	for(int i = 0; i<numPointsX; i++){
+		for(int j = 0; j<numPointsY; j++){
+			printf("%f ", swe.h_height_out[i + j * (numPointsX)]);
+		}
+		printf(" \n");
+	}
+	
 	
 }
