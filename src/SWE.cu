@@ -3,7 +3,7 @@
 // To Do - 
 // 1. Use cuda's math.h for speedup
 // 2. Check if shared memory overlaps not causing issues - Done
-// 3. Check bcCount
+// 3. Check bcCount - Done
 // 4. Matmul and some matrices left - Done
 // 5. Deal with shared memory out of bounds access - Done
 // 6. Global index - Done
@@ -12,7 +12,8 @@
 // Errors Occurred
 // 1. Too many resources - Solved by reducing block dimensions
 // 2. Warp out of bound - Solved (Hopefully)
-
+// 3. Global Indexing incorrect - Solved (Hopefully)
+// 4. Offsets not set
 
 // KERNELS 
 // WENO reconstruction - Refer Appendix A of paper
@@ -150,14 +151,14 @@ __global__ void applySWE(int numPointsX, int numPointsY, float* d_height, float*
 	int localX = threadIdx.x + 2;
 	int localY = threadIdx.y + 2;
 
-	float height = d_height[x + y*gridDim.x*blockDim.x];
-	float momentumU = (height != 0.0) ? d_momentumU[x + y*gridDim.x*blockDim.x] / height : 0.0; 
-	float momentumV = (height != 0.0) ? d_momentumV[x + y*gridDim.x*blockDim.x] / height : 0.0;
+	float height = d_height[x + y*numPointsX];
+	float momentumU = (height != 0.0) ? d_momentumU[x + y*numPointsX] / height : 0.0; 
+	float momentumV = (height != 0.0) ? d_momentumV[x + y*numPointsX] / height : 0.0;
 
 	float3 uCurr = make_float3(height, momentumU * height, momentumV * height);
 
-	int offsetX = d_offsetX[x + y*gridDim.x*blockDim.x];
-	int offsetY = d_offsetY[x + y*gridDim.x*blockDim.x];
+	int offsetX = d_offsetX[x + y*numPointsX];
+	int offsetY = d_offsetY[x + y*numPointsX];
 
 	// Used to compute alpha
 	float eigenX = abs(momentumU) + sqrt(GRAVITY * height);
@@ -168,6 +169,7 @@ __global__ void applySWE(int numPointsX, int numPointsY, float* d_height, float*
 	terrainArr[localY][localX] = bathymetryVal;
 	pointInfoArr[localY][localX] = make_float3(height, eigenX, eigenY);
 
+	// Initialize boundary values
 	if(threadIdx.x == 0 || threadIdx.x == 1 || threadIdx.x == NUM_THREADS_X - 1 || threadIdx.x == NUM_THREADS_X - 2 || threadIdx.y == 0 || threadIdx.y == 1 || threadIdx.y == NUM_THREADS_Y - 1 || threadIdx.y == NUM_THREADS_Y - 2){
 		terrainArr[threadIdx.y][threadIdx.x] = 0.0f;
 		pointInfoArr[threadIdx.y][threadIdx.x] = make_float3(0.0f, 0.0f, 0.0f);
@@ -219,7 +221,6 @@ __global__ void applySWE(int numPointsX, int numPointsY, float* d_height, float*
 
 	// Find second order source term
 	float3 sourceLow = make_float3(0.0f, (1.0f / dx) * ((0.25 * GRAVITY * pow(terrainArr[localY][localX + 1], 2)) - (0.25 * GRAVITY * pow(terrainArr[localY][localX - 1], 2))) - GRAVITY * (height + bathymetryVal) * (1.0 / (2.0 * dx)) * (terrainArr[localY][localX + 1] - terrainArr[localY][localX - 1]), (1.0 / dy) * ((0.25 * GRAVITY * pow(terrainArr[localY + 1][localX], 2)) - (0.25 * GRAVITY * pow(terrainArr[localY - 1][localX], 2))) - GRAVITY * (height + bathymetryVal) * (1.0 / (2.0 * dy)) * (terrainArr[localY + 1][localX] - terrainArr[localY - 1][localX]));
-	// float3 sourceLow = make_float3(1.0f, 1.0f, 1.0f);
 
 	// Find F tilde and G tilde from paper, the time averaged fluxes
 	//Applying matrix multiplication
@@ -392,27 +393,31 @@ __global__ void applySWE(int numPointsX, int numPointsY, float* d_height, float*
 	uNew.z = uNew.x * momentumVTerm;
 
 	// Check if inner domain cell
-	bool isDomainInner = (x >= BOUNDARY_CELL_COUNT) && (x<(numPointsX + BOUNDARY_CELL_COUNT)) && (y >= BOUNDARY_CELL_COUNT) && (y < (numPointsY + BOUNDARY_CELL_COUNT));
+	bool isDomainInner = (x >= BOUNDARY_CELL_COUNT) && (x<(numPointsX - BOUNDARY_CELL_COUNT)) && (y >= BOUNDARY_CELL_COUNT) && (y < (numPointsY - BOUNDARY_CELL_COUNT));
 
 	// Check if in inner domain of current patch
 	bool isPatchInner = (localX >= BOUNDARY_CELL_COUNT) && (localX < (NUM_THREADS_X - BOUNDARY_CELL_COUNT)) && (localY >= BOUNDARY_CELL_COUNT) && (localY < (NUM_THREADS_Y - BOUNDARY_CELL_COUNT));
 
 	if(isDomainInner && isPatchInner){
-		d_height[x + y*gridDim.x*blockDim.x] = uNew.x;
-		d_momentumU[x + y*gridDim.x*blockDim.x] = uNew.y;
-		d_momentumV[x + y*gridDim.x*blockDim.x] = uNew.z;
+		d_height[x + y*numPointsX] = uNew.x;
+		d_momentumU[x + y*numPointsX] = uNew.y;
+		d_momentumV[x + y*numPointsX] = uNew.z;
 		// Assign offsets too
+
+		// Set the boundary conditions
+		d_height[x + offsetX + y*numPointsX] = uNew.x;
+		d_momentumU[x + offsetX + y*numPointsX] = -uNew.y;
+		d_momentumV[x + offsetX + y*numPointsX] = -uNew.z;
+
+		d_height[x + (y + offsetY)*numPointsX] = uNew.x;
+		d_momentumU[x + (y + offsetY)*numPointsX] = -uNew.y;
+		d_momentumV[x + (y + offsetY)*numPointsX] = -uNew.z;
+
+		// d_height[x + y*numPointsX] = uCurr.x * 2;
+		// d_momentumU[x + y*numPointsX] = uCurr.y * 2;
+		// d_momentumV[x + y*numPointsX] = uCurr.z * 2;
+
 	}
-
-	// Set the boundary conditions
-	d_height[x + offsetX + y*gridDim.x*blockDim.x] = uNew.x;
-	d_momentumU[x + offsetX + y*gridDim.x*blockDim.x] = -uNew.y;
-	d_momentumV[x + offsetX + y*gridDim.x*blockDim.x] = -uNew.z;
-
-	d_height[x + (y + offsetY)*gridDim.x*blockDim.x] = uNew.x;
-	d_momentumU[x + (y + offsetY)*gridDim.x*blockDim.x] = -uNew.y;
-	d_momentumV[x + (y + offsetY)*gridDim.x*blockDim.x] = -uNew.z;
-
 }
 
 
@@ -430,41 +435,71 @@ SWE::SWE(int numPointsX, int numPointsY){
 	// Allocate memory to host variables
 	// Allocating height and momentum variables (+2 for boundary?)
 	// U variable in Equation
-	h_height = (float*)malloc(sizeof(float) * (numPointsX + 2) * (numPointsY + 2)); 
-	h_momentumU = (float*)malloc(sizeof(float) * (numPointsX + 2) * (numPointsY + 2)); 
-	h_momentumV = (float*)malloc(sizeof(float) * (numPointsX + 2) * (numPointsY + 2)); 
+	h_height = (float*)malloc(sizeof(float) * (numPointsX) * (numPointsY)); 
+	h_momentumU = (float*)malloc(sizeof(float) * (numPointsX) * (numPointsY)); 
+	h_momentumV = (float*)malloc(sizeof(float) * (numPointsX) * (numPointsY)); 
 
-	// Allocating flux terms (why +1?)
+	// Allocating flux terms 
 	// F and G variables in formula
-	h_Fh = (float*)malloc(sizeof(numPointsX + 1) * (numPointsY + 1)); 
-	h_Fhu = (float*)malloc(sizeof(numPointsX + 1) * (numPointsY + 1));
-	h_Fhv = (float*)malloc(sizeof(numPointsX + 1) * (numPointsY + 1));
-	h_Gh = (float*)malloc(sizeof(numPointsX + 1) * (numPointsY + 1));
-	h_Ghu = (float*)malloc(sizeof(numPointsX + 1) * (numPointsY + 1));
-	h_Ghv = (float*)malloc(sizeof(numPointsX + 1) * (numPointsY + 1));
+	// h_Fh = (float*)malloc(sizeof(numPointsX + 1) * (numPointsY + 1)); 
+	// h_Fhu = (float*)malloc(sizeof(numPointsX + 1) * (numPointsY + 1));
+	// h_Fhv = (float*)malloc(sizeof(numPointsX + 1) * (numPointsY + 1));
+	// h_Gh = (float*)malloc(sizeof(numPointsX + 1) * (numPointsY + 1));
+	// h_Ghu = (float*)malloc(sizeof(numPointsX + 1) * (numPointsY + 1));
+	// h_Ghv = (float*)malloc(sizeof(numPointsX + 1) * (numPointsY + 1));
 
 	// Allocating max height, max velocity and charachteristic velocity
-	h_maxHeight = new float;
-	h_maxVelocity = new float;
-	h_characteristicVelocity = new float;
+	// h_maxHeight = new float;
+	// h_maxVelocity = new float;
+	// h_characteristicVelocity = new float;
 
 	// Allocating memory for offsets
 	h_offsetX = (int*)malloc(sizeof(numPointsX) * (numPointsY)); 
 	h_offsetY = (int*)malloc(sizeof(numPointsX) * (numPointsY)); 
 
+	// int localX, localY;
+	// for(int x = 0; x<numPointsX; x++){
+	// 	for(int y = 0; y<numPointsY; y++){
+	// 		localX = x / NUM_THREADS_X;
+	// 		localY = y / NUM_THREADS_Y;
+
+	// 		if(localX <= BOUNDARY_CELL_COUNT){
+
+	// 		}
+	// 	}
+	// }
+
+	int3 blockId = make_int3(((numPointsX - (NUM_THREADS_X - 1))/ (NUM_THREADS_X - 2*BOUNDARY_CELL_COUNT)) + 1, ((numPointsY - (NUM_THREADS_Y - 1))/ (NUM_THREADS_Y - 2*BOUNDARY_CELL_COUNT)) + 1, 1);
+	int3 threadId = make_int3(NUM_THREADS_X, NUM_THREADS_Y, 1);
+	int globalX;
+	int globalY;
+
+	for (int bIdx = 0; bIdx <blockId.x; bIdx ++){
+		for(int bIdy = 0; bIdy < blockId.y; bIdy++){
+			for(int tIdx = 0; tIdx < threadId.x; tIdx++){
+				for(int tIdy = 0; tIdy < threadId.y; tIdy++){
+					globalX = bIdx * (NUM_THREADS_X - 2 * BOUNDARY_CELL_COUNT) + tIdx;
+					globalY = bIdy * (NUM_THREADS_Y - 2 * BOUNDARY_CELL_COUNT) + tIdy;
+
+					h_height[globalX + globalY*numPointsX] = globalX;
+				}
+			}
+		}
+	}
+
 	// Allocate memory to device variables
 	checkCudaErrors(cudaMalloc((void**)&d_height, (numPointsX+2)*(numPointsY+2)*sizeof(float)));
 	checkCudaErrors(cudaMalloc((void**)&d_momentumU, (numPointsX+2)*(numPointsY+2)*sizeof(float)));
 	checkCudaErrors(cudaMalloc((void**)&d_momentumV, (numPointsX+2)*(numPointsY+2)*sizeof(float)));
-	checkCudaErrors(cudaMalloc((void**)&d_Fh, (numPointsX+1)*(numPointsY+1)*sizeof(float)));
-	checkCudaErrors(cudaMalloc((void**)&d_Fhu, (numPointsX+1)*(numPointsY+1)*sizeof(float)));
-	checkCudaErrors(cudaMalloc((void**)&d_Fhv, (numPointsX+1)*(numPointsY+1)*sizeof(float)));
-	checkCudaErrors(cudaMalloc((void**)&d_Gh, (numPointsX+1)*(numPointsY+1)*sizeof(float)));
-	checkCudaErrors(cudaMalloc((void**)&d_Ghu, (numPointsX+1)*(numPointsY+1)*sizeof(float)));
-	checkCudaErrors(cudaMalloc((void**)&d_Ghv, (numPointsX+1)*(numPointsY+1)*sizeof(float)));
-	checkCudaErrors(cudaMalloc((void**)&d_maxHeight, sizeof(float)));
-	checkCudaErrors(cudaMalloc((void**)&d_maxVelocity, sizeof(float)));
-	checkCudaErrors(cudaMalloc((void**)&d_characteristicVelocity, sizeof(float)));
+	// checkCudaErrors(cudaMalloc((void**)&d_Fh, (numPointsX+1)*(numPointsY+1)*sizeof(float)));
+	// checkCudaErrors(cudaMalloc((void**)&d_Fhu, (numPointsX+1)*(numPointsY+1)*sizeof(float)));
+	// checkCudaErrors(cudaMalloc((void**)&d_Fhv, (numPointsX+1)*(numPointsY+1)*sizeof(float)));
+	// checkCudaErrors(cudaMalloc((void**)&d_Gh, (numPointsX+1)*(numPointsY+1)*sizeof(float)));
+	// checkCudaErrors(cudaMalloc((void**)&d_Ghu, (numPointsX+1)*(numPointsY+1)*sizeof(float)));
+	// checkCudaErrors(cudaMalloc((void**)&d_Ghv, (numPointsX+1)*(numPointsY+1)*sizeof(float)));
+	// checkCudaErrors(cudaMalloc((void**)&d_maxHeight, sizeof(float)));
+	// checkCudaErrors(cudaMalloc((void**)&d_maxVelocity, sizeof(float)));
+	// checkCudaErrors(cudaMalloc((void**)&d_characteristicVelocity, sizeof(float)));
 	checkCudaErrors(cudaMalloc((void**)&d_offsetX, (numPointsX)*(numPointsY)*sizeof(int)));
 	checkCudaErrors(cudaMalloc((void**)&d_offsetY, (numPointsX)*(numPointsY)*sizeof(int)));
 
@@ -473,11 +508,11 @@ SWE::SWE(int numPointsX, int numPointsY){
 	checkCudaErrors(cudaMemset(d_height, 0, (numPointsX+2)*(numPointsY+2)*sizeof(float)));
 	checkCudaErrors(cudaMemset(d_momentumU, 0, (numPointsX+2)*(numPointsY+2)*sizeof(float)));
 	checkCudaErrors(cudaMemset(d_momentumV, 0, (numPointsX+2)*(numPointsY+2)*sizeof(float)));
-	checkCudaErrors(cudaMemset(d_Fh, 0, (numPointsX+1)*(numPointsY+1)*sizeof(float)));
-	checkCudaErrors(cudaMemset(d_Gh, 0, (numPointsX+1)*(numPointsY+1)*sizeof(float)));
-	checkCudaErrors(cudaMemset(d_maxHeight, 0, sizeof(float)));
-	checkCudaErrors(cudaMemset(d_maxVelocity, 0, sizeof(float)));
-	checkCudaErrors(cudaMemset(d_characteristicVelocity, 0.001f, sizeof(float)));
+	// checkCudaErrors(cudaMemset(d_Fh, 0, (numPointsX+1)*(numPointsY+1)*sizeof(float)));
+	// checkCudaErrors(cudaMemset(d_Gh, 0, (numPointsX+1)*(numPointsY+1)*sizeof(float)));
+	// checkCudaErrors(cudaMemset(d_maxHeight, 0, sizeof(float)));
+	// checkCudaErrors(cudaMemset(d_maxVelocity, 0, sizeof(float)));
+	// checkCudaErrors(cudaMemset(d_characteristicVelocity, 0.001f, sizeof(float)));
 	checkCudaErrors(cudaMemset(d_offsetX, 0, (numPointsX)*(numPointsY)*sizeof(int)));
 	checkCudaErrors(cudaMemset(d_offsetY, 0, (numPointsX)*(numPointsY)*sizeof(int)));
 
@@ -506,9 +541,12 @@ void SWE::setInitialConditions(int conditionNum){
 void SWE::simulate(){
 	
 	cudaError_t kernelErr;
-	
+
+	dim3 grid(((numPointsX - (NUM_THREADS_X - 1))/ (NUM_THREADS_X - 2*BOUNDARY_CELL_COUNT)) + 1, ((numPointsY - (NUM_THREADS_Y - 1))/ (NUM_THREADS_Y - 2*BOUNDARY_CELL_COUNT)) + 1);
+	dim3 block(NUM_THREADS_X, NUM_THREADS_Y, 1);
+
 	for(int i = 0; i<NUM_ITERATIONS; i++){
-		applySWE <<< dim3(numPointsX / NUM_THREADS_X, numPointsY / NUM_THREADS_Y, 1), dim3(NUM_THREADS_X, NUM_THREADS_Y, 1) >>> (numPointsX, numPointsY, d_height, d_momentumU, d_momentumV, d_offsetX, d_offsetY);
+		applySWE <<< grid, block >>> (numPointsX, numPointsY, d_height, d_momentumU, d_momentumV, d_offsetX, d_offsetY);
 		
 		kernelErr = cudaGetLastError();
 		if(kernelErr!=cudaSuccess){
