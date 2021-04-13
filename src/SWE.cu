@@ -454,8 +454,8 @@ SWE::SWE(int numPointsX, int numPointsY){
 	// h_characteristicVelocity = new float;
 
 	// Allocating memory for offsets
-	h_offsetX = (int*)malloc(sizeof(numPointsX) * (numPointsY)); 
-	h_offsetY = (int*)malloc(sizeof(numPointsX) * (numPointsY)); 
+	h_offsetX = (int*)malloc(sizeof(int) * (numPointsX) * (numPointsY)); 
+	h_offsetY = (int*)malloc(sizeof(int) * (numPointsX) * (numPointsY)); 
 
 	// int localX, localY;
 	// for(int x = 0; x<numPointsX; x++){
@@ -469,11 +469,12 @@ SWE::SWE(int numPointsX, int numPointsY){
 	// 	}
 	// }
 
-	int3 blockId = make_int3(((numPointsX - (NUM_THREADS_X - 1))/ (NUM_THREADS_X - 2*BOUNDARY_CELL_COUNT)) + 1, ((numPointsY - (NUM_THREADS_Y - 1))/ (NUM_THREADS_Y - 2*BOUNDARY_CELL_COUNT)) + 1, 1);
+	int3 blockId = make_int3(((numPointsX - 1- (NUM_THREADS_X - 1))/ (NUM_THREADS_X - 2*BOUNDARY_CELL_COUNT)) + 1, ((numPointsY - 1 - (NUM_THREADS_Y - 1))/ (NUM_THREADS_Y - 2*BOUNDARY_CELL_COUNT)) + 1, 1);
 	int3 threadId = make_int3(NUM_THREADS_X, NUM_THREADS_Y, 1);
 	int globalX;
 	int globalY;
 
+	// Set offset values
 	for (int bIdx = 0; bIdx <blockId.x; bIdx ++){
 		for(int bIdy = 0; bIdy < blockId.y; bIdy++){
 			for(int tIdx = 0; tIdx < threadId.x; tIdx++){
@@ -481,7 +482,22 @@ SWE::SWE(int numPointsX, int numPointsY){
 					globalX = bIdx * (NUM_THREADS_X - 2 * BOUNDARY_CELL_COUNT) + tIdx;
 					globalY = bIdy * (NUM_THREADS_Y - 2 * BOUNDARY_CELL_COUNT) + tIdy;
 
-					h_height[globalX + globalY*numPointsX] = globalX;
+					if((tIdx>=BOUNDARY_CELL_COUNT) && (tIdx<2*BOUNDARY_CELL_COUNT)){
+						h_offsetX[globalX + globalY*numPointsX] = 2*(BOUNDARY_CELL_COUNT - (tIdx + 1)) + 1;
+					}
+
+					if((tIdx >= NUM_THREADS_X - 2*BOUNDARY_CELL_COUNT) && (tIdx< NUM_THREADS_X - BOUNDARY_CELL_COUNT)){
+						h_offsetX[globalX + globalY*numPointsX] = 2 * (NUM_THREADS_X - (tIdx) - 4) - 1;
+					}
+
+					if((tIdy>=BOUNDARY_CELL_COUNT) && (tIdy<2*BOUNDARY_CELL_COUNT)){
+						h_offsetY[globalX + globalY*numPointsX] = 2*(BOUNDARY_CELL_COUNT - (tIdy + 1)) + 1;
+					}
+
+					if((tIdy >= NUM_THREADS_Y - 2*BOUNDARY_CELL_COUNT) && (tIdy< NUM_THREADS_Y - BOUNDARY_CELL_COUNT)){
+						h_offsetY[globalX + globalY*numPointsX] = 2 * (NUM_THREADS_Y - (tIdy) - 4) - 1;
+					}
+
 				}
 			}
 		}
@@ -542,7 +558,7 @@ void SWE::simulate(){
 	
 	cudaError_t kernelErr;
 
-	dim3 grid(((numPointsX - (NUM_THREADS_X - 1))/ (NUM_THREADS_X - 2*BOUNDARY_CELL_COUNT)) + 1, ((numPointsY - (NUM_THREADS_Y - 1))/ (NUM_THREADS_Y - 2*BOUNDARY_CELL_COUNT)) + 1);
+	dim3 grid(((numPointsX - 1 - (NUM_THREADS_X - 1))/ (NUM_THREADS_X - 2*BOUNDARY_CELL_COUNT)) + 1, ((numPointsY - 1 - (NUM_THREADS_Y - 1))/ (NUM_THREADS_Y - 2*BOUNDARY_CELL_COUNT)) + 1, 1);
 	dim3 block(NUM_THREADS_X, NUM_THREADS_Y, 1);
 
 	for(int i = 0; i<NUM_ITERATIONS; i++){

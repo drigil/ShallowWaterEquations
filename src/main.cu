@@ -2,8 +2,8 @@
 #include "SWE.cuh"
 
 int main(){
-	int numPointsX = 79;
-	int numPointsY = 55;
+	int numPointsX = 80;
+	int numPointsY = 56;
 	int conditionNum = 0;
 
 	SWE swe(numPointsX, numPointsY);
@@ -11,7 +11,7 @@ int main(){
 
 	for(int i = 0; i<numPointsX; i++){
 		for(int j = 0; j<numPointsY; j++){
-			printf("%f ", swe.h_height[i + j * (numPointsX + 2)]);
+			printf("%d ", swe.h_offsetY[i + j * (numPointsX)]);
 		}
 		printf(" \n");
 	}
