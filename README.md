@@ -1,5 +1,5 @@
 # ShallowWaterEquations
-Simulating the shallow water equations in realtime using CUDA and OpenGL
+Simulating the shallow water equations in realtime using CUDA
 
 ### Build Instructions
 
