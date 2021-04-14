@@ -1,3 +1,0 @@
-/home/anshul18219/Documents/ShallowWaterEquations/debug/CMakeFiles/rebuild_cache.dir
-/home/anshul18219/Documents/ShallowWaterEquations/debug/CMakeFiles/GPU_Project.dir
-/home/anshul18219/Documents/ShallowWaterEquations/debug/CMakeFiles/edit_cache.dir
