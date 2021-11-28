@@ -1,6 +1,8 @@
 #include <iostream>
 #include "SWE.cuh"
 
+int width = 640, height=640; // Window dimensions
+
 int main(){
 	int numPointsX = 80;
 	int numPointsY = 56;

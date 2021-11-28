@@ -18,6 +18,8 @@
 // KERNELS 
 // WENO reconstruction - Refer Appendix A of paper
 
+// LINE 247 - Corrected
+// BOUNDARY CELL
 
 // WENO for flux for h component and the source term derivatives  (due to the bathymetry)
 __device__ void WENOPosX(float3 v_iP, float3 v_i, float3 v_iN, float b_iP, float b_i, float b_iN, float3 &flux, float &source){
@@ -175,7 +177,6 @@ __global__ void applySWE(int numPointsX, int numPointsY, float* d_height, float*
 		pointInfoArr[threadIdx.y][threadIdx.x] = make_float3(0.0f, 0.0f, 0.0f);
 		fluxFArr[threadIdx.y][threadIdx.x] = make_float3(0.0f, 0.0f, 0.0f);
 		fluxGArr[threadIdx.y][threadIdx.x] = make_float3(0.0f, 0.0f, 0.0f);
-			
 	}
 
 	__syncthreads(); // Fill block of threads with terrain heights, current point height and eigen values
@@ -245,7 +246,7 @@ __global__ void applySWE(int numPointsX, int numPointsY, float* d_height, float*
 	__syncthreads(); // Fill shared memory with point information and F Flux values for X direction reconstruction
 
 	// Set flux boundaries
-	if((offsetX!=0) && (threadIdx.x >= BOUNDARY_CELL_COUNT) && (threadIdx.x < NUM_THREADS_X - BOUNDARY_CELL_COUNT)){ // Check
+	if((offsetX!=0) && (threadIdx.x + offsetX >= 0) && ((threadIdx.x + offsetX) < NUM_THREADS_X)){ // Check
 		fluxFArr[localY][localX + offsetX] = fTilde * make_float3(-1.0f, 1.0f, 1.0f); // Reverse flux at boundaries
 	}
 
@@ -392,7 +393,7 @@ __global__ void applySWE(int numPointsX, int numPointsY, float* d_height, float*
 	// printf("height, momentumU and momentumV are %f %f %f\n", uNew.x, uNew.y, uNew.z);
 
 	// Check if inner domain cell
-	bool isDomainInner = (globalX >= BOUNDARY_CELL_COUNT) && (globalX<(numPointsX + BOUNDARY_CELL_COUNT)) && (globalY >= BOUNDARY_CELL_COUNT) && (globalY < (numPointsY + BOUNDARY_CELL_COUNT));
+	bool isDomainInner = (globalX >= BOUNDARY_CELL_COUNT) && (globalX<(numPointsX + BOUNDARY_CELL_COUNT)) && (globalY >= BOUNDARY_CELL_COUNT) && (globalY < (numPointsY + BOUNDARY_CELL_COUNT)); // check
 
 	// Check if in inner domain of current patch
 	bool isPatchInner = (threadIdx.x >= BOUNDARY_CELL_COUNT) && (threadIdx.x < (NUM_THREADS_X - BOUNDARY_CELL_COUNT)) && (threadIdx.y >= BOUNDARY_CELL_COUNT) && (threadIdx.y < (NUM_THREADS_Y - BOUNDARY_CELL_COUNT));
@@ -408,13 +409,13 @@ __global__ void applySWE(int numPointsX, int numPointsY, float* d_height, float*
 		// Assign offsets too
 
 		// Set the boundary conditions
-		if(offsetX!=0 && threadIdx.x >= BOUNDARY_CELL_COUNT && threadIdx.x < NUM_THREADS_X - BOUNDARY_CELL_COUNT){
+		if((offsetX!=0) && threadIdx.x >= BOUNDARY_CELL_COUNT && threadIdx.x < NUM_THREADS_X - BOUNDARY_CELL_COUNT){
 			d_height_out[globalX + offsetX + globalY*numPointsX] = uNew.x;
 			d_momentumU_out[globalX + offsetX + globalY*numPointsX] = -uNew.y;
 			d_momentumV_out[globalX + offsetX + globalY*numPointsX] = -uNew.z;
 		}
 		
-		if(offsetY!=0 && threadIdx.y >= BOUNDARY_CELL_COUNT && threadIdx.y < NUM_THREADS_Y - BOUNDARY_CELL_COUNT){
+		if((offsetY!=0) && threadIdx.y >= BOUNDARY_CELL_COUNT && threadIdx.y < NUM_THREADS_Y - BOUNDARY_CELL_COUNT){
 			d_height_out[globalX + (globalY + offsetY)*numPointsX] = uNew.x;
 			d_momentumU_out[globalX + (globalY + offsetY)*numPointsX] = -uNew.y;
 			d_momentumV_out[globalX + (globalY + offsetY)*numPointsX] = -uNew.z;
@@ -511,9 +512,13 @@ void SWE::setInitialConditions(int conditionNum){
 				for(int j = 0 ; j < numPointsY; j++){
 					if(i > numPointsX/4 && i < 3*numPointsX/4 && j > numPointsY/4 && j < 3*numPointsY/4){
 						h_height[i + j * (numPointsX)] = 5.5f;
+						h_momentumU[i + j * (numPointsX)] = 0.0f;
+						h_momentumV[i + j * (numPointsX)] = 0.0f;
 					}
 					else{
 						h_height[i + j * (numPointsX)] = 1.0f;
+						h_momentumU[i + j * (numPointsX)] = 0.0f;
+						h_momentumV[i + j * (numPointsX)] = 0.0f;
 					}
 				}
 			}

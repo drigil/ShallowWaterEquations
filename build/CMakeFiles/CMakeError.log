@@ -1,0 +1,85 @@
+Checking whether the CUDA compiler is NVIDIA using "" did not match "nvcc: NVIDIA \(R\) Cuda compiler driver":
+Checking whether the CUDA compiler is Clang using "" did not match "(clang version)":
+Compiling the CUDA compiler identification source file "CMakeCUDACompilerId.cu" failed.
+Compiler: CMAKE_CUDA_COMPILER-NOTFOUND 
+Build flags: 
+Id flags:  -v
+
+The output was:
+No such file or directory
+
+
+Compiling the CUDA compiler identification source file "CMakeCUDACompilerId.cu" failed.
+Compiler: CMAKE_CUDA_COMPILER-NOTFOUND 
+Build flags: 
+Id flags:  -v
+
+The output was:
+No such file or directory
+
+
+Performing C++ SOURCE FILE Test CMAKE_HAVE_LIBC_PTHREAD failed with the following output:
+Change Dir: /home/anshul/Documents/ShallowWaterEquations/build/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/usr/bin/make cmTC_e34b8/fast && /usr/bin/make  -f CMakeFiles/cmTC_e34b8.dir/build.make CMakeFiles/cmTC_e34b8.dir/build
+make[1]: Entering directory '/home/anshul/Documents/ShallowWaterEquations/build/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_e34b8.dir/src.cxx.o
+/usr/bin/c++ -DCMAKE_HAVE_LIBC_PTHREAD   -o CMakeFiles/cmTC_e34b8.dir/src.cxx.o -c /home/anshul/Documents/ShallowWaterEquations/build/CMakeFiles/CMakeTmp/src.cxx
+Linking CXX executable cmTC_e34b8
+/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_e34b8.dir/link.txt --verbose=1
+/usr/bin/c++ CMakeFiles/cmTC_e34b8.dir/src.cxx.o -o cmTC_e34b8 
+CMakeFiles/cmTC_e34b8.dir/src.cxx.o: In function `main':
+src.cxx:(.text+0x3e): undefined reference to `pthread_create'
+src.cxx:(.text+0x4a): undefined reference to `pthread_detach'
+src.cxx:(.text+0x56): undefined reference to `pthread_cancel'
+src.cxx:(.text+0x67): undefined reference to `pthread_join'
+src.cxx:(.text+0x7b): undefined reference to `pthread_atfork'
+collect2: error: ld returned 1 exit status
+CMakeFiles/cmTC_e34b8.dir/build.make:105: recipe for target 'cmTC_e34b8' failed
+make[1]: *** [cmTC_e34b8] Error 1
+make[1]: Leaving directory '/home/anshul/Documents/ShallowWaterEquations/build/CMakeFiles/CMakeTmp'
+Makefile:140: recipe for target 'cmTC_e34b8/fast' failed
+make: *** [cmTC_e34b8/fast] Error 2
+
+
+Source file was:
+#include <pthread.h>
+
+static void* test_func(void* data)
+{
+  return data;
+}
+
+int main(void)
+{
+  pthread_t thread;
+  pthread_create(&thread, NULL, test_func, NULL);
+  pthread_detach(thread);
+  pthread_cancel(thread);
+  pthread_join(thread, NULL);
+  pthread_atfork(NULL, NULL, NULL);
+  pthread_exit(NULL);
+
+  return 0;
+}
+
+Determining if the function pthread_create exists in the pthreads failed with the following output:
+Change Dir: /home/anshul/Documents/ShallowWaterEquations/build/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/usr/bin/make cmTC_676ef/fast && /usr/bin/make  -f CMakeFiles/cmTC_676ef.dir/build.make CMakeFiles/cmTC_676ef.dir/build
+make[1]: Entering directory '/home/anshul/Documents/ShallowWaterEquations/build/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_676ef.dir/CheckFunctionExists.cxx.o
+/usr/bin/c++   -DCHECK_FUNCTION_EXISTS=pthread_create -o CMakeFiles/cmTC_676ef.dir/CheckFunctionExists.cxx.o -c /home/anshul/Documents/ShallowWaterEquations/build/CMakeFiles/CheckLibraryExists/CheckFunctionExists.cxx
+Linking CXX executable cmTC_676ef
+/usr/local/bin/cmake -E cmake_link_script CMakeFiles/cmTC_676ef.dir/link.txt --verbose=1
+/usr/bin/c++  -DCHECK_FUNCTION_EXISTS=pthread_create CMakeFiles/cmTC_676ef.dir/CheckFunctionExists.cxx.o -o cmTC_676ef  -lpthreads 
+/usr/bin/ld: cannot find -lpthreads
+collect2: error: ld returned 1 exit status
+CMakeFiles/cmTC_676ef.dir/build.make:105: recipe for target 'cmTC_676ef' failed
+make[1]: *** [cmTC_676ef] Error 1
+make[1]: Leaving directory '/home/anshul/Documents/ShallowWaterEquations/build/CMakeFiles/CMakeTmp'
+Makefile:140: recipe for target 'cmTC_676ef/fast' failed
+make: *** [cmTC_676ef/fast] Error 2
+
+
+
