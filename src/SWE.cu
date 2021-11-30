@@ -20,12 +20,18 @@
 
 // LINE 247 - Corrected
 // BOUNDARY CELL
+// Error on initial velocity
+// Check effect of topology
 
 // WENO for flux for h component and the source term derivatives  (due to the bathymetry)
 __device__ void WENOPosX(float3 v_iP, float3 v_i, float3 v_iN, float b_iP, float b_i, float b_iN, float3 &flux, float &source){
 	// Get the smoothness indicator
 	float3 beta0 = (v_iN - v_i) * (v_iN - v_i);
 	float3 beta1 = (v_i - v_iP) * (v_i - v_iP);
+
+	// if(isnan(v_iP.x)){
+	// 	printf("%f\n", v_iP.x);
+	// }
 
 	v_iP.y = v_iP.y - (0.25 * GRAVITY * b_iP * b_iP);
 	v_i.y = v_i.y - (0.25 * GRAVITY * b_i * b_i);
@@ -46,6 +52,11 @@ __device__ void WENOPosX(float3 v_iP, float3 v_i, float3 v_iN, float b_iP, float
 	float3 weight1 = a1 / (a0 + a1);
 
 	flux = weight0 * flux0 + weight1 * flux1;
+	
+	// if(isnan(flux0.x)){
+	// 	printf("%f\n", flux0.x);
+	// }
+	
 	source = weight0.y * source_0 + weight1.y * source_1;
 }
 
@@ -272,10 +283,13 @@ __global__ void applySWE(int numPointsX, int numPointsY, float* d_height, float*
 	// Reconstruct negative X
 	WENONegX(fNegX_i_j, fNegX_iN_j, fNegX_iNN_j, terrainArr[localY][localX], terrainArr[localY][localX + 1], terrainArr[localY][localX + 2], outFluxNegX, outSourceNegX);
 
+
 	float3 outFluxX = outFluxNegX + outFluxPosX;
 	float outSourceX = 0.5 * outSourcePosX + 0.5 * outSourceNegX;
 
-
+	// if(isnan(outFluxNegX.x)){ // debug
+	// 	printf("%f\n", outFluxNegX.x);	
+	// }
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -356,10 +370,11 @@ __global__ void applySWE(int numPointsX, int numPointsY, float* d_height, float*
 	float theta_j = min(hat_u, pointInfoArr[localY + 1][localX].y);
 	
 	// Final h flux
+	// if(isnan(hFluxX)){ // debug - outfluxX, hFluxX
+	// 	printf("%f\n", hFluxX);	
+	// }
 	float fTildeFinal = theta_i * (outFluxX.x - hFluxX) + hFluxX;
 	float gTildeFinal = theta_j * (outFluxY.x - hFluxY) + hFluxY;
-
-
 
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -371,13 +386,24 @@ __global__ void applySWE(int numPointsX, int numPointsY, float* d_height, float*
 	fluxFArr[localY][localX] = finalFluxX;
 	fluxGArr[localY][localX] = finalFluxY;
 
+	// if(isnan(fTildeFinal)){ // debug
+	// 	printf("%f\n", fTildeFinal);	
+	// }
+	
+
 	// Store source terms in shared memory
 	terrainArr[localY][localX] = outSourceX;
 	pointInfoArr[localY][localX].z = outSourceY;
 
 	__syncthreads();
 
-	float3 uNew = uCurr - ((dt / dx) * (finalFluxX - fluxFArr[localY][localX - 1])) - (dt/dy) * (finalFluxY -fluxGArr[localY - 1][localX]) - (GRAVITY * (height + bathymetryVal) * make_float3(0.0, (dt/dx) * (outSourceX - terrainArr[localY][localX - 1]), (dt/dy) * (outSourceY - pointInfoArr[localY - 1][localX].z)));
+
+	//nan -> uNew.x, finalFluxY, finalFlux.x, ftildefinal
+	float3 uNew = uCurr - (dt / dx) * (finalFluxX - fluxFArr[localY][localX - 1]) - (dt/dy) * (finalFluxY -fluxGArr[localY - 1][localX]) - (GRAVITY * (height + bathymetryVal) * make_float3(0.0, (dt/dx) * (outSourceX - terrainArr[localY][localX - 1]), (dt/dy) * (outSourceY - pointInfoArr[localY - 1][localX].z)));
+	// if(finalFluxX.x > 100){ // Debugging
+	// 	printf("%f\n", finalFluxX.x);	
+	// }
+	
 	// Find the veloctities for the current cell
 	float heightTerm = uNew.x * uNew.x * uNew.x * uNew.x;
 
@@ -511,8 +537,8 @@ void SWE::setInitialConditions(int conditionNum){
 			for(int i = 0; i < numPointsX; i++){
 				for(int j = 0 ; j < numPointsY; j++){
 					if(i > numPointsX/4 && i < 3*numPointsX/4 && j > numPointsY/4 && j < 3*numPointsY/4){
-						h_height[i + j * (numPointsX)] = 5.5f;
-						h_momentumU[i + j * (numPointsX)] = 0.0f;
+						h_height[i + j * (numPointsX)] = 5.0f;
+						h_momentumU[i + j * (numPointsX)] = 1.0f;
 						h_momentumV[i + j * (numPointsX)] = 0.0f;
 					}
 					else{
@@ -547,18 +573,15 @@ void SWE::simulate(){
 	dim3 grid(((numPointsX - 1 - (NUM_THREADS_X - 1))/ (NUM_THREADS_X - 2*BOUNDARY_CELL_COUNT)) + 1, ((numPointsY - 1 - (NUM_THREADS_Y - 1))/ (NUM_THREADS_Y - 2*BOUNDARY_CELL_COUNT)) + 1, 1);
 	dim3 block(NUM_THREADS_X, NUM_THREADS_Y, 1);
 
-	for(int i = 0; i<NUM_ITERATIONS; i++){
-		applySWE <<< grid, block >>> (numPointsX, numPointsY, d_height, d_momentumU, d_momentumV, d_offsetX, d_offsetY, d_height_out, d_momentumU_out, d_momentumV_out);
-		
-		kernelErr = cudaGetLastError();
-		if(kernelErr!=cudaSuccess){
-			printf("Error: %s\n", cudaGetErrorString(kernelErr));
-		}
-
-		cudaMemcpy(d_height, d_height_out, (numPointsX)*(numPointsY) * sizeof(float), cudaMemcpyDeviceToDevice);
-
-
+	applySWE <<< grid, block >>> (numPointsX, numPointsY, d_height, d_momentumU, d_momentumV, d_offsetX, d_offsetY, d_height_out, d_momentumU_out, d_momentumV_out);
+	
+	kernelErr = cudaGetLastError();
+	if(kernelErr!=cudaSuccess){
+		printf("Error: %s\n", cudaGetErrorString(kernelErr));
 	}
+
+	cudaMemcpy(d_height, d_height_out, (numPointsX)*(numPointsY) * sizeof(float), cudaMemcpyDeviceToDevice);
+
 	cudaMemcpy(h_height_out, d_height_out, (numPointsX)*(numPointsY) * sizeof(float), cudaMemcpyDeviceToHost);
 }
 

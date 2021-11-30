@@ -1,8 +1,8 @@
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.18)
 
-project(GPU_Project LANGUAGES CXX CUDA)
+PROJECT(GPU_Project LANGUAGES C CXX CUDA)
 
-find_package(CUDAToolkit)
+find_package(CUDAToolkit REQUIRED)
 
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)

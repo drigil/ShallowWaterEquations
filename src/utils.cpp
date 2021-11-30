@@ -30,7 +30,7 @@ void setupViewTransformation(int program)
     // glm::mat4 viewT = glm::lookAt(glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
     //Camera at (0, 0, 20) looking down the negative Z-axis in a right handed coordinate system
     // glm::mat4 viewT = glm::mat4(1.0);
-    glm::mat4 viewT = glm::lookAt(glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
+    glm::mat4 viewT = glm::lookAt(glm::vec3(40.0, 5.0, 80.0), glm::vec3(40.0, 0.0, 28.0), glm::vec3(0.0, 1.0, 0.0));
     //Pass on the viewing matrix to the vertex shader
     glUseProgram(program);
     GLuint vView_uniform = glGetUniformLocation(program, "vView");
@@ -47,8 +47,8 @@ void setupProjectionTransformation(int program, int screen_width, int screen_hei
     // float aspect = (float)screen_width/(float)screen_height;
     float view_height = float(2);
     float aspect = (float)screen_width/(float)screen_height;
-    glm::mat4 projectionT = glm::ortho(-view_height*aspect/2.0f, view_height*aspect/2.0f, -view_height/2.0f, view_height/2.0f, 0.8f, 1000.0f);
-    // glm::mat4 projectionT = glm::perspective(45.0f, aspect, 0.1f, 100.0f);
+    // glm::mat4 projectionT = glm::ortho(-view_height*aspect/2.0f, view_height*aspect/2.0f, -view_height/2.0f, view_height/2.0f, 0.8f, 1000.0f);
+    glm::mat4 projectionT = glm::perspective(90.0f, aspect, 0.1f, 1000.0f);
     // glm::mat4 projectionT = glm::mat4(1.0);
     //Pass on the projection matrix to the vertex shader
     glUseProgram(program);
@@ -162,7 +162,7 @@ const char * setGLSLVersion(){
 }
 
 int openGLInit(){
-    #if defined(IMGUI_IMPL_OPENGL_LOADER_GL3W)
+#if defined(IMGUI_IMPL_OPENGL_LOADER_GL3W)
     bool err = gl3wInit() != 0;
 #elif defined(IMGUI_IMPL_OPENGL_LOADER_GLEW)
     bool err = glewInit() != GLEW_OK;
