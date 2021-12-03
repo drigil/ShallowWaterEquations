@@ -299,7 +299,7 @@ __global__ void applySWE(int numPointsX, int numPointsY, float* d_height, float*
 	__syncthreads();	
 
 	// Set Flux boundaries
-	if ((offsetY!=0) && (threadIdx.y >= BOUNDARY_CELL_COUNT) && (threadIdx.y < NUM_THREADS_Y - BOUNDARY_CELL_COUNT)) {
+	if ((offsetY!=0) && (threadIdx.y + offsetY >= 0) && (threadIdx.y + offsetY < NUM_THREADS_Y)) {
 		pointInfoArr[localY + offsetY][localX] = gTilde * make_float3(-1.0f, 1.0f, 1.0f);
 	}
 
@@ -435,13 +435,13 @@ __global__ void applySWE(int numPointsX, int numPointsY, float* d_height, float*
 		// Assign offsets too
 
 		// Set the boundary conditions
-		if((offsetX!=0) && threadIdx.x >= BOUNDARY_CELL_COUNT && threadIdx.x < NUM_THREADS_X - BOUNDARY_CELL_COUNT){
+		if((offsetX!=0)){
 			d_height_out[globalX + offsetX + globalY*numPointsX] = uNew.x;
 			d_momentumU_out[globalX + offsetX + globalY*numPointsX] = -uNew.y;
 			d_momentumV_out[globalX + offsetX + globalY*numPointsX] = -uNew.z;
 		}
 		
-		if((offsetY!=0) && threadIdx.y >= BOUNDARY_CELL_COUNT && threadIdx.y < NUM_THREADS_Y - BOUNDARY_CELL_COUNT){
+		if((offsetY!=0)){
 			d_height_out[globalX + (globalY + offsetY)*numPointsX] = uNew.x;
 			d_momentumU_out[globalX + (globalY + offsetY)*numPointsX] = -uNew.y;
 			d_momentumV_out[globalX + (globalY + offsetY)*numPointsX] = -uNew.z;
@@ -537,8 +537,8 @@ void SWE::setInitialConditions(int conditionNum){
 			for(int i = 0; i < numPointsX; i++){
 				for(int j = 0 ; j < numPointsY; j++){
 					if(i > numPointsX/4 && i < 3*numPointsX/4 && j > numPointsY/4 && j < 3*numPointsY/4){
-						h_height[i + j * (numPointsX)] = 5.0f;
-						h_momentumU[i + j * (numPointsX)] = 1.0f;
+						h_height[i + j * (numPointsX)] = 35.0f;
+						h_momentumU[i + j * (numPointsX)] = 0.0f;
 						h_momentumV[i + j * (numPointsX)] = 0.0f;
 					}
 					else{
@@ -552,13 +552,20 @@ void SWE::setInitialConditions(int conditionNum){
 		// case 1:
 		// 	for(int i = 0; i < numPointsX; i++){
 		// 		for(int j = 0 ; j < numPointsY; j++){
-		// 			h_height[i + j * (numPointsX)] = 2.0f;
-		// 			h_momentumU[i + j * (numPointsX)] = 0.0f;
-		// 			h_momentumV[i + j * (numPointsX)] = 0.0f;
-					
+		// 			if(i < numPointsX/4){
+		// 				h_height[i + j * (numPointsX)] = 2.0f;
+		// 				h_momentumU[i + j * (numPointsX)] = 20.0f;
+		// 				h_momentumV[i + j * (numPointsX)] = -15.0f;
+		// 			}
+
+		// 			else{
+		// 				h_height[i + j * (numPointsX)] = 2.0f;
+		// 				h_momentumU[i + j * (numPointsX)] = 30.0f;
+		// 				h_momentumV[i + j * (numPointsX)] = -10.0f;	
+		// 			}
 					
 		// 		}
-			// }
+		// 	}
 		}
 
 	cudaMemcpy(d_height, h_height, (numPointsX)*(numPointsY) * sizeof(float), cudaMemcpyHostToDevice);
@@ -581,6 +588,9 @@ void SWE::simulate(){
 	}
 
 	cudaMemcpy(d_height, d_height_out, (numPointsX)*(numPointsY) * sizeof(float), cudaMemcpyDeviceToDevice);
+	cudaMemcpy(d_momentumU, d_momentumU_out, (numPointsX)*(numPointsY) * sizeof(float), cudaMemcpyDeviceToDevice);
+	cudaMemcpy(d_momentumV, d_momentumV_out, (numPointsX)*(numPointsY) * sizeof(float), cudaMemcpyDeviceToDevice);
+
 
 	cudaMemcpy(h_height_out, d_height_out, (numPointsX)*(numPointsY) * sizeof(float), cudaMemcpyDeviceToHost);
 }

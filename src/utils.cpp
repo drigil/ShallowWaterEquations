@@ -30,7 +30,7 @@ void setupViewTransformation(int program)
     // glm::mat4 viewT = glm::lookAt(glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
     //Camera at (0, 0, 20) looking down the negative Z-axis in a right handed coordinate system
     // glm::mat4 viewT = glm::mat4(1.0);
-    glm::mat4 viewT = glm::lookAt(glm::vec3(40.0, 5.0, 80.0), glm::vec3(40.0, 0.0, 28.0), glm::vec3(0.0, 1.0, 0.0));
+    glm::mat4 viewT = glm::lookAt(glm::vec3(40.0, 15.0, 75.0), glm::vec3(40.0, 0.0, 28.0), glm::vec3(0.0, 1.0, 0.0));
     //Pass on the viewing matrix to the vertex shader
     glUseProgram(program);
     GLuint vView_uniform = glGetUniformLocation(program, "vView");

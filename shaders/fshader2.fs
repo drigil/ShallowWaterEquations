@@ -4,7 +4,7 @@ in vec4 locationVector;
 vec3 eyepos;
 vec3 eye_normal;
 
-vec3 lpos_world = vec3(25.0f, 50.0f, -70.0f);
+vec3 lpos_world = vec3(0.0f, 100.0f, 1000.0f);
 vec3 worldOrigin = vec3(0.0f, 0.0f, 0.0f);
 vec3 cameraPosition  = vec3(0.0, 0.0, 1.0);
 
@@ -41,8 +41,8 @@ void main()
     
     //Defining ambient light
 
-    ambientLight = vec4(1.0f, 0.0f, 0.0f, 1.0f);
-    ambientLightCoeff = 0.3f;
+    ambientLight = vec4(0.0f, 0.0f, 1.0f, 1.0f);
+    ambientLightCoeff = 0.08f;
     ambientLight = ambientLightCoeff*ambientLight; 
 
 
@@ -67,5 +67,5 @@ void main()
 	specLight = specLightCoeff * max(pow(dot(positionVector, halfwayVector), shininessCoeff), 0.0f) * specLight;
 
 
-	FragColor = specLight + diffLight + ambientLight;
+	FragColor = diffLight + ambientLight;
 };

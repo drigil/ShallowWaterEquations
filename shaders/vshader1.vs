@@ -9,7 +9,7 @@ uniform mat4 vProjection;
 vec3 eyepos;
 vec3 eye_normal;
 
-vec3 lpos_world = vec3(25.0f, 50.0f, -70.0f);
+vec3 lpos_world = vec3(0.0f, 100.0f, 1000.0f);
 vec3 worldOrigin = vec3(0.0f, 0.0f, 0.0f);
 vec3 cameraPosition  = vec3(0.0, 0.0, 1.0);
 
@@ -43,7 +43,7 @@ void main(){
     
     //Defining ambient light
 
-    ambientLight = vec4(1.0f, 0.0f, 0.0f, 1.0f);
+    ambientLight = vec4(0.0f, 0.0f, 1.0f, 1.0f);
     ambientLightCoeff = 0.3f;
     ambientLight = ambientLightCoeff*ambientLight; 
 
@@ -70,7 +70,7 @@ void main(){
 	specLight = specLightCoeff * max(pow(dot(reflectedVector,viewVector), shininessCoeff), 0.0f) * specLight;
 
 
-	fragColor = specLight + diffLight + ambientLight;
-	fragColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);
+	fragColor = diffLight; // + ambientLight + specLight;
+	//fragColor = vec4(0.0f, 0.0f, 1.0f, 1.0f);
 
 }

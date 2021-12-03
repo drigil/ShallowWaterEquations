@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <iostream>
 #include <cstdlib>
+#include <unistd.h>
 
 int width = 640, height=640; // Window dimensions
 
@@ -22,10 +23,10 @@ int main(){
     ImVec4 clearColor = ImVec4(0.0f, 0.0f, 0.0f, 1.00f);
 
     //Phong Shading
-    //unsigned int shaderProgram = createProgram("./shaders/vshader2.vs", "./shaders/fshader2.fs");
+    unsigned int shaderProgram = createProgram("../shaders/vshader2.vs", "../shaders/fshader2.fs");
     
     //Gouraud Shading
-    unsigned int shaderProgram = createProgram("../shaders/vshader1.vs", "../shaders/fshader.fs");
+    // unsigned int shaderProgram = createProgram("../shaders/vshader1.vs", "../shaders/fshader.fs");
     glUseProgram(shaderProgram);
 
     setupModelTransformation(shaderProgram);
@@ -161,7 +162,7 @@ int main(){
         iterationNum++;
         printf("Iteration Num %d\n", iterationNum);
         
-        // sleep(0.3);
+        // usleep(1000);
     }
 
     cleanup(window);
