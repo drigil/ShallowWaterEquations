@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.18)
 
-PROJECT(GPU_Project LANGUAGES C CXX CUDA)
+PROJECT(SWE LANGUAGES C CXX CUDA)
 
 find_package(CUDAToolkit REQUIRED)
 
